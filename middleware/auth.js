@@ -16,7 +16,7 @@ function requireCorrectUser(req, res, next) {
   try {
     const token = req.headers.authorization;
     const decodedToken = jwt.verify(token, 'I_AM_THE_SECRET_KEY');
-    if (decodedToken.user_id === +req.params.id) {
+    if (decodedToken.username === req.params.username) {
       return next();
     } else {
       return res.json({ message: 'unauthorized' });

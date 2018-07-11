@@ -101,33 +101,4 @@ router.delete('/:id', requireCorrectCompany, async (req, res, next) => {
   }
 });
 
-router.post('/auth', async (req, res, next) => {
-  // Return a jwt if properly authenticated
-  try {
-    const companyData = await db.query(
-      'SELECT * FROM companies WHERE handle = $1',
-      [req.body.handle]
-    );
-    if (companyData.rows.length > 0) {
-      const match = await bcrypt.compare(
-        req.body.password,
-        companyData.rows[0].password
-      );
-      if (match) {
-        const token = jwt.sign(
-          { company_id: companyData.rows[0].id },
-          'I_AM_THE_SECRET_KEY'
-        );
-        return res.json({ token });
-      } else {
-        return res.json({ message: 'invalid password' });
-      }
-    } else {
-      return res.json({ message: 'invalid handle' });
-    }
-  } catch (e) {
-    return next(e);
-  }
-});
-
 module.exports = router;
