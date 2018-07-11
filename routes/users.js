@@ -7,6 +7,7 @@ const {
   requireAuthorization,
   requireCorrectUser
 } = require('../middleware/auth');
+const { selectivePatchQuery } = require('../helpers/selective_query');
 
 router.get('', requireAuthorization, async (req, res, next) => {
   // Return all users
@@ -66,16 +67,16 @@ router.get('/:username', requireAuthorization, async (req, res, next) => {
 router.patch('/:username', requireCorrectUser, async (req, res, next) => {
   // Update and return a user
   try {
-    const data = await db.query(
-      'UPDATE users SET first_name = $1, last_name  = $2, email = $3, photo = $4 WHERE username = $5 RETURNING *',
-      [
-        req.body.first_name,
-        req.body.last_name,
-        req.body.email,
-        req.body.photo,
-        req.params.username
-      ]
+    const query = selectivePatchQuery(
+      'users',
+      req.body,
+      'username',
+      req.params.username
     );
+    console.log(query);
+    const data = await db.query(query.query, query.values);
+
+    delete data.rows[0].password;
     return res.json(data.rows[0]);
   } catch (e) {
     return next(e);

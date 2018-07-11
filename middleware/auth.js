@@ -7,7 +7,12 @@ function requireAuthorization(req, res, next) {
     const decodedToken = jwt.verify(token, 'I_AM_THE_SECRET_KEY');
     return next();
   } catch (e) {
-    return res.json({ message: 'unauthorized' });
+    const unauthorized = new Error(
+      'You need to authenticate before accessing this resource.'
+    );
+    unauthorized.status = 401;
+    unauthorized.title = 'Unauthorized';
+    return next(unauthorized);
   }
 }
 
@@ -19,10 +24,13 @@ function requireCorrectUser(req, res, next) {
     if (decodedToken.username === req.params.username) {
       return next();
     } else {
-      return res.json({ message: 'unauthorized' });
+      throw 'Forbidden';
     }
   } catch (e) {
-    return res.json({ message: 'unauthorized' });
+    const forbidden = new Error('You are not allowed to access this resource.');
+    forbidden.status = 403;
+    forbidden.title = 'Forbidden';
+    return next(forbidden);
   }
 }
 
@@ -34,10 +42,13 @@ function requireCorrectCompany(req, res, next) {
     if (decodedToken.company_id === +req.params.id) {
       return next();
     } else {
-      return res.json({ message: 'unauthorized' });
+      throw 'Forbidden';
     }
   } catch (e) {
-    return res.json({ message: 'unauthorized' });
+    const forbidden = new Error('You are not allowed to access this resource.');
+    forbidden.status = 403;
+    forbidden.title = 'Forbidden';
+    return next(forbidden);
   }
 }
 
