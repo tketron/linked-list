@@ -18,9 +18,9 @@ CREATE TABLE jobs (
   title TEXT, 
   salary INTEGER, 
   equity REAL, 
-  company INTEGER REFERENCES companies (id) ON DELETE CASCADE);
+  company TEXT REFERENCES companies (handle) ON DELETE CASCADE);
 
-INSERT INTO jobs (title, salary, equity, company) VALUES ('Teacher', '100000', '4', 1);
+INSERT INTO jobs (title, salary, equity, company) VALUES ('Teacher', '100000', '4', 'haleyaldrich');
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY, 

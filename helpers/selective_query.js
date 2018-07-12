@@ -1,3 +1,5 @@
+const bcrypt = require('bcrypt');
+
 /**
  * Generate a selective update query based on a request body
  * @param {String} table - where to make the query
@@ -5,8 +7,12 @@
  * @param {String} key - username OR handle
  * @param {String} value - string to search table for
  */
-function selectivePatchQuery(table, items, key, value) {
+async function selectivePatchQuery(table, items, key, value) {
   // keep track of item indexes
+  if (Object.keys(items).includes('password')) {
+    const hashedPassword = await bcrypt.hash(items.password, 10);
+    items.password = hashedPassword;
+  }
   let idx = 1;
   // start by updating a table
   let queryPart1 = `UPDATE ${table} SET `;

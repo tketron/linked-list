@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { selectivePatchQuery } = require('../helpers/selective_query');
 const {
   requireAuthorization,
   requireCorrectCompany
@@ -23,31 +24,38 @@ router.post('', async (req, res, next) => {
   try {
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const data = await db.query(
-      'INSERT INTO companies (handle, password, name, logo) VALUES ($1, $2, $3, $4) RETURNING *',
-      [req.body.handle, hashedPassword, req.body.name, req.body.logo]
+      'INSERT INTO companies (handle, password, name, logo, email) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [
+        req.body.handle,
+        hashedPassword,
+        req.body.name,
+        req.body.logo,
+        req.body.email
+      ]
     );
+    delete data.rows[0].password;
     return res.json(data.rows[0]);
   } catch (e) {
     return next(e);
   }
 });
 
-router.get('/:id', requireAuthorization, async (req, res, next) => {
+router.get('/:handle', requireAuthorization, async (req, res, next) => {
   // Return a single company
   try {
     const companyData = await db.query(
-      'SELECT * FROM companies WHERE id = $1',
-      [req.params.id]
+      'SELECT * FROM companies WHERE handle = $1',
+      [req.params.handle]
     );
     const userData = await db.query(
-      'SELECT id FROM users WHERE current_company_id = $1',
-      [req.params.id]
+      'SELECT username FROM users WHERE current_company = $1',
+      [req.params.handle]
     );
-    const jobData = await db.query(
-      'SELECT id FROM jobs WHERE company_id = $1',
-      [req.params.id]
-    );
-    companyData.rows[0].users = userData.rows.map(item => item.id);
+    const jobData = await db.query('SELECT id FROM jobs WHERE company = $1', [
+      req.params.handle
+    ]);
+    delete companyData.rows[0].password;
+    companyData.rows[0].users = userData.rows.map(item => item.username);
     companyData.rows[0].jobs = jobData.rows.map(item => item.id);
     return res.json(companyData.rows[0]);
   } catch (e) {
@@ -55,22 +63,26 @@ router.get('/:id', requireAuthorization, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireCorrectCompany, async (req, res, next) => {
+router.patch('/:handle', requireCorrectCompany, async (req, res, next) => {
   // Update and return a company
   try {
-    const companyData = await db.query(
-      'UPDATE companies SET name = $1, logo = $2 WHERE id = $3 RETURNING *',
-      [req.body.name, req.body.logo, req.params.id]
+    const query = await selectivePatchQuery(
+      'companies',
+      req.body,
+      'handle',
+      req.params.handle
     );
+
+    const companyData = await db.query(query.query, query.values);
     const userData = await db.query(
-      'SELECT id FROM users WHERE current_company_id = $1',
-      [req.params.id]
+      'SELECT username FROM users WHERE current_company = $1',
+      [req.params.handle]
     );
-    const jobData = await db.query(
-      'SELECT id FROM jobs WHERE company_id = $1',
-      [req.params.id]
-    );
-    companyData.rows[0].users = userData.rows.map(item => item.id);
+    const jobData = await db.query('SELECT id FROM jobs WHERE company = $1', [
+      req.params.handle
+    ]);
+    delete companyData.rows[0].password;
+    companyData.rows[0].users = userData.rows.map(item => item.username);
     companyData.rows[0].jobs = jobData.rows.map(item => item.id);
     return res.json(companyData.rows[0]);
   } catch (e) {
@@ -78,23 +90,25 @@ router.patch('/:id', requireCorrectCompany, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireCorrectCompany, async (req, res, next) => {
+router.delete('/:handle', requireCorrectCompany, async (req, res, next) => {
   // Delete and return a user
   try {
-    const companyData = await db.query('SELECT FROM companies WHERE id = $1', [
-      req.params.id
-    ]);
+    const companyData = await db.query(
+      'SELECT * FROM companies WHERE handle = $1',
+      [req.params.handle]
+    );
     const userData = await db.query(
-      'SELECT id FROM users WHERE current_company_id = $1',
-      [req.params.id]
+      'SELECT username FROM users WHERE current_company = $1',
+      [req.params.handle]
     );
-    const jobData = await db.query(
-      'SELECT id FROM jobs WHERE company_id = $1',
-      [req.params.id]
-    );
-    companyData.rows[0].users = userData.rows.map(item => item.id);
+    const jobData = await db.query('SELECT id FROM jobs WHERE company = $1', [
+      req.params.handle
+    ]);
+    companyData.rows[0].users = userData.rows.map(item => item.username);
     companyData.rows[0].jobs = jobData.rows.map(item => item.id);
-    await db.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+    await db.query('DELETE FROM companies WHERE handle = $1', [
+      req.params.handle
+    ]);
     return res.json(companyData.rows[0]);
   } catch (e) {
     return next(e);

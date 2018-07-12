@@ -39,7 +39,7 @@ function requireCorrectCompany(req, res, next) {
   try {
     const token = req.headers.authorization;
     const decodedToken = jwt.verify(token, 'I_AM_THE_SECRET_KEY');
-    if (decodedToken.company_id === +req.params.id) {
+    if (decodedToken.handle === req.params.handle) {
       return next();
     } else {
       throw 'Forbidden';

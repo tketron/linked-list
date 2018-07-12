@@ -118,7 +118,8 @@ describe('PATCH /users/:username', () => {
       .patch(`/users/${auth.current_username}`)
       .set('authorization', auth.user_token)
       .send({
-        first_name: 'Tyler'
+        first_name: 'Tyler',
+        password: 'hi'
       });
     console.log(response.body);
     expect(response.body.first_name).toEqual('Tyler');

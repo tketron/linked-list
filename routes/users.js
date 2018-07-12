@@ -67,7 +67,7 @@ router.get('/:username', requireAuthorization, async (req, res, next) => {
 router.patch('/:username', requireCorrectUser, async (req, res, next) => {
   // Update and return a user
   try {
-    const query = selectivePatchQuery(
+    const query = await selectivePatchQuery(
       'users',
       req.body,
       'username',

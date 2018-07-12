@@ -28,6 +28,7 @@ router.post('/user-auth', async (req, res, next) => {
         );
         return res.json({ token });
       } else {
+        // TODO : throw more descriptive errors with titles and status
         return res.json({ message: 'invalid password' });
       }
     } else {
@@ -59,6 +60,7 @@ router.post('/company-auth', async (req, res, next) => {
         );
         return res.json({ token });
       } else {
+        // TODO : Throw more descriptive errors with titles and status
         return res.json({ message: 'invalid password' });
       }
     } else {
