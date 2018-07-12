@@ -5,7 +5,8 @@ const { selectivePatchQuery } = require('../helpers/selective_query');
 const {
   requireAuthorization,
   requireCompanyAuthorization,
-  requireCorrectCompany
+  requireCorrectCompany,
+  requireUserAuthorization
 } = require('../middleware/auth');
 
 router.get('', requireAuthorization, async (req, res, next) => {
@@ -84,7 +85,6 @@ router.delete('/:id', requireCompanyAuthorization, async (req, res, next) => {
       req.params.id
     ]);
 
-    console.log(`Job: ${jobData.rows[0].company}, Company: ${req.company}`);
     if (req.company !== jobData.rows[0].company) {
       const forbidden = new Error('You are not allowed to edit this resource.');
       forbidden.status = 403;
@@ -97,6 +97,47 @@ router.delete('/:id', requireCompanyAuthorization, async (req, res, next) => {
     return res.json(jobData.rows[0]);
   } catch (e) {
     return next(e);
+  }
+});
+
+router.post('/:id/apply', requireUserAuthorization, async (req, res, next) => {
+  try {
+    const jobUserData = await db.query(
+      `INSERT INTO jobs_users (job_id, username) VALUES ($1, $2)`,
+      [req.params.id, req.username]
+    );
+    return res.json({ message: 'Successfully applied for job.' });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/:id/apply', requireAuthorization, async (req, res, next) => {
+  try {
+    if (req.decodedToken.username) {
+      const jobUserData = await db.query(
+        `SELECT * FROM jobs_users WHERE job_id=$1 AND username=$2`,
+        [req.params.id, req.decodedToken.username]
+      );
+      if (jobUserData.rows.length === 0) {
+        throw 'Forbidden';
+      } else {
+        const deleteJobUserData = await db.query(
+          `DELETE FROM jobs_users WHERE job_id=$1 AND username=$2`,
+          [req.params.id, req.decodedToken.username]
+        );
+        return res.send({ message: 'Successfully deleted job application.' });
+      }
+    } else if (req.decodedToken.handle) {
+      const targetJob = await db.query(
+        `SELECT company FROM jobs WHERE company=$1`,
+        [req.decodedToken.handle]
+      );
+    } else {
+      throw 'Forbidden';
+    }
+  } catch (e) {
+    next(e);
   }
 });
 

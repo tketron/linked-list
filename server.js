@@ -1,4 +1,4 @@
-const app = require('./app');
+const app = require('./index');
 
 // Start server
 app.listen(3000, () => {

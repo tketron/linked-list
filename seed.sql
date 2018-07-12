@@ -35,5 +35,5 @@ CREATE TABLE users (
 
 INSERT INTO users (username, password, first_name, last_name, email, photo) VALUES ('tketron', 'abc123', 'Tyler', 'Ketron', 'tketron@gmailcom', 'http//www.fakeavatar.com');
 
-CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, company_id INTEGER REFERENCES companies (id) ON DELETE CASCADE);
-INSERT INTO jobs_users (job_id, company_id) VALUES (1, 1);
+CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);
+INSERT INTO jobs_users (job_id, username) VALUES (1, 'tketron');

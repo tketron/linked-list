@@ -14,7 +14,7 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs (id SERIAL PRIMARY KEY, title TEXT, salary INTEGER, equity REAL, company INTEGER REFERENCES companies (id) ON DELETE CASCADE);`
+    `CREATE TABLE jobs (id SERIAL PRIMARY KEY, title TEXT, salary INTEGER, equity REAL, company TEXT REFERENCES companies (handle) ON DELETE CASCADE);`
   );
 
   await db.query(
@@ -22,7 +22,7 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, company_id INTEGER REFERENCES companies (id) ON DELETE CASCADE);`
+    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
   );
 });
 
@@ -167,8 +167,12 @@ describe('DELETE /users/:id/', () => {
 afterEach(async () => {
   await db.query('DELETE FROM users');
   await db.query('DELETE FROM companies');
+  await db.query('DELETE FROM jobs');
 });
+
 afterAll(async () => {
+  console.log('after all!');
+
   await db.query('DROP TABLE IF EXISTS jobs_users');
   await db.query('DROP TABLE IF EXISTS jobs');
   await db.query('DROP TABLE IF EXISTS users');

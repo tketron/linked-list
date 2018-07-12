@@ -5,6 +5,7 @@ function requireAuthorization(req, res, next) {
   try {
     const token = req.headers.authorization;
     const decodedToken = jwt.verify(token, 'I_AM_THE_SECRET_KEY');
+    req.decodedToken = decodedToken;
     return next();
   } catch (e) {
     const unauthorized = new Error(
@@ -16,6 +17,21 @@ function requireAuthorization(req, res, next) {
   }
 }
 
+function requireUserAuthorization(req, res, next) {
+  try {
+    const token = req.headers.authorization;
+    const decodedToken = jwt.verify(token, 'I_AM_THE_SECRET_KEY');
+    if (decodedToken.username) {
+      req.username = decodedToken.username;
+      return next();
+    }
+  } catch (e) {
+    const unauthorized = new Error('Only users can access this resource.');
+    unauthorized.status = 401;
+    unauthorized.title = 'Unauthorized';
+    return next(unauthorized);
+  }
+}
 function requireCompanyAuthorization(req, res, next) {
   try {
     const token = req.headers.authorization;
@@ -71,6 +87,7 @@ function requireCorrectCompany(req, res, next) {
 
 module.exports = {
   requireAuthorization,
+  requireUserAuthorization,
   requireCompanyAuthorization,
   requireCorrectUser,
   requireCorrectCompany

@@ -21,8 +21,18 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, company_id INTEGER REFERENCES companies (id) ON DELETE CASCADE);`
+    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
   );
+});
+
+afterAll(async () => {
+  console.log('after all!');
+
+  await db.query('DROP TABLE IF EXISTS jobs_users');
+  await db.query('DROP TABLE IF EXISTS jobs');
+  await db.query('DROP TABLE IF EXISTS users');
+  await db.query('DROP TABLE IF EXISTS companies');
+  db.end();
 });
 
 beforeEach(async () => {
@@ -163,11 +173,5 @@ test('cannot delete other user', async () => {
 afterEach(async () => {
   await db.query('DELETE FROM users');
   await db.query('DELETE FROM companies');
-});
-afterAll(async () => {
-  await db.query('DROP TABLE IF EXISTS jobs_users');
-  await db.query('DROP TABLE IF EXISTS jobs');
-  await db.query('DROP TABLE IF EXISTS users');
-  await db.query('DROP TABLE IF EXISTS companies');
-  db.end();
+  await db.query('DELETE FROM jobs');
 });

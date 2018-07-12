@@ -8,6 +8,7 @@ const auth = {};
 
 //Create tables
 beforeAll(async () => {
+  console.log('before all!');
   await db.query(
     `CREATE TABLE companies (id SERIAL PRIMARY KEY, handle TEXT UNIQUE NOT NULL, password TEXT NOT NULL, name TEXT NOT NULL, logo TEXT, email TEXT NOT NULL UNIQUE);`
   );
@@ -21,8 +22,18 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, company_id INTEGER REFERENCES companies (id) ON DELETE CASCADE);`
+    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
   );
+});
+
+afterAll(async () => {
+  console.log('after all!');
+
+  await db.query('DROP TABLE IF EXISTS jobs_users');
+  await db.query('DROP TABLE IF EXISTS jobs');
+  await db.query('DROP TABLE IF EXISTS users');
+  await db.query('DROP TABLE IF EXISTS companies');
+  db.end();
 });
 
 beforeEach(async () => {
@@ -175,15 +186,61 @@ describe('DELETE /jobs/:id', () => {
   });
 });
 
+describe('POST /jobs/:id/apply', () => {
+  test('successfully applies for a job', async () => {
+    const response = await request(app)
+      .post(`/jobs/${auth.job_id}/apply`)
+      .set('authorization', auth.user_token);
+
+    const jobUserData = await db.query(
+      `SELECT * FROM jobs_users WHERE job_id=${auth.job_id} AND username='${
+        auth.current_username
+      }'`
+    );
+    expect(jobUserData.rows[0].job_id).toEqual(auth.job_id);
+    expect(jobUserData.rows[0].username).toEqual(auth.current_username);
+    expect(response.status).toBe(200);
+    expect(response.body.message).toEqual('Successfully applied for job.');
+  });
+});
+
+describe('DELETE /jobs/:id/apply', () => {
+  test('successfully deletes a job application', async () => {
+    const applyforjob = await request(app)
+      .post(`/jobs/${auth.job_id}/apply`)
+      .set('authorization', auth.user_token);
+
+    const response = await request(app)
+      .delete(`/jobs/${auth.job_id}/apply`)
+      .set('authorization', auth.user_token);
+    expect(response.status).toBe(200);
+    expect(response.body.message).toEqual(
+      'Successfully deleted job application.'
+    );
+  });
+
+  // test('company cannot delete a job application that is not theirs', async () => {
+  //   const response = await request(app)
+  //     .delete(`/jobs/${auth.job_id}/apply`)
+  //     .set('authorization', auth.user_token);
+  //   expect(response.status).toBe(403);
+  //   expect(response.message).toEqual(
+  //     'You are not allowed to access this resource.'
+  //   );
+  // });
+  // test('company cannot delete a job application that is not theirs', async () => {
+  //   const response = await request(app)
+  //     .delete(`/jobs/${auth.job_id}/apply`)
+  //     .set('authorization', auth.company_token);
+  //   expect(response.status).toBe(403);
+  //   expect(response.message).toEqual(
+  //     'You are not allowed to access this resource.'
+  //   );
+  // });
+});
+
 afterEach(async () => {
   await db.query('DELETE FROM users');
   await db.query('DELETE FROM companies');
   await db.query('DELETE FROM jobs');
-});
-afterAll(async () => {
-  await db.query('DROP TABLE IF EXISTS jobs_users');
-  await db.query('DROP TABLE IF EXISTS jobs');
-  await db.query('DROP TABLE IF EXISTS users');
-  await db.query('DROP TABLE IF EXISTS companies');
-  db.end();
 });
