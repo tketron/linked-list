@@ -59,7 +59,7 @@ router.get('/:username', requireAuthorization, async (req, res, next) => {
       req.params.username
     ]);
     const jobData = await db.query(
-      'SELECT id FROM jobs_users WHERE username = $1',
+      'SELECT id FROM applications WHERE username = $1',
       [req.params.username]
     );
     delete data.rows[0].password;

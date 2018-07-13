@@ -22,7 +22,7 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
+    `CREATE TABLE applications (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
   );
 });
 
@@ -173,7 +173,7 @@ afterEach(async () => {
 afterAll(async () => {
   console.log('after all!');
 
-  await db.query('DROP TABLE IF EXISTS jobs_users');
+  await db.query('DROP TABLE IF EXISTS applications');
   await db.query('DROP TABLE IF EXISTS jobs');
   await db.query('DROP TABLE IF EXISTS users');
   await db.query('DROP TABLE IF EXISTS companies');

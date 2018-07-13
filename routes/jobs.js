@@ -100,45 +100,73 @@ router.delete('/:id', requireCompanyAuthorization, async (req, res, next) => {
   }
 });
 
-router.post('/:id/apply', requireUserAuthorization, async (req, res, next) => {
-  try {
-    const jobUserData = await db.query(
-      `INSERT INTO jobs_users (job_id, username) VALUES ($1, $2)`,
-      [req.params.id, req.username]
-    );
-    return res.json({ message: 'Successfully applied for job.' });
-  } catch (e) {
-    next(e);
-  }
-});
-
-router.delete('/:id/apply', requireAuthorization, async (req, res, next) => {
-  try {
-    if (req.decodedToken.username) {
+router.post(
+  '/:id/applications',
+  requireUserAuthorization,
+  async (req, res, next) => {
+    try {
       const jobUserData = await db.query(
-        `SELECT * FROM jobs_users WHERE job_id=$1 AND username=$2`,
-        [req.params.id, req.decodedToken.username]
+        `INSERT INTO applications (job_id, username) VALUES ($1, $2)`,
+        [req.params.id, req.username]
       );
-      if (jobUserData.rows.length === 0) {
-        throw 'Forbidden';
-      } else {
-        const deleteJobUserData = await db.query(
-          `DELETE FROM jobs_users WHERE job_id=$1 AND username=$2`,
-          [req.params.id, req.decodedToken.username]
-        );
-        return res.send({ message: 'Successfully deleted job application.' });
-      }
-    } else if (req.decodedToken.handle) {
-      const targetJob = await db.query(
-        `SELECT company FROM jobs WHERE company=$1`,
-        [req.decodedToken.handle]
-      );
-    } else {
-      throw 'Forbidden';
+      return res.json({ message: 'Successfully applied for job.' });
+    } catch (e) {
+      next(e);
     }
-  } catch (e) {
-    next(e);
   }
-});
+);
+
+router.delete(
+  '/:id/applications/:applicationID',
+  requireAuthorization,
+  async (req, res, next) => {
+    try {
+      if (req.decodedToken.username) {
+        const jobUserData = await db.query(
+          `SELECT * FROM applications WHERE id=$1`,
+          [req.params.applicationID]
+        );
+        if (jobUserData.rows[0].username !== req.decodedToken.username) {
+          const forbidden = new Error(
+            'You are not allowed to access this resource.'
+          );
+          forbidden.status = 403;
+          throw forbidden;
+        } else {
+          const deleteJobUserData = await db.query(
+            `DELETE FROM applications WHERE id=$1`,
+            [req.params.applicationID]
+          );
+          return res.send({ message: 'Successfully deleted job application.' });
+        }
+      } else if (req.decodedToken.handle) {
+        const targetJob = await db.query(
+          `SELECT company FROM jobs WHERE id=$1`,
+          [req.params.id]
+        );
+        if (targetJob.rows[0].company !== req.decodedToken.handle) {
+          const forbidden = new Error(
+            'You are not allowed to access this resource.'
+          );
+          forbidden.status = 403;
+          throw forbidden;
+        } else {
+          const deleteJobUserData = await db.query(
+            `DELETE FROM applications WHERE id=$1`,
+            [req.params.applicationID]
+          );
+          return res.send({ message: 'Successfully deleted job application.' });
+        }
+        const unauthorized = new Error(
+          'You need to authenticate before accessing this resource.'
+        );
+        unauthorized.status = 401;
+        throw unauthorized;
+      }
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
 module.exports = router;

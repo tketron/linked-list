@@ -22,14 +22,14 @@ beforeAll(async () => {
   );
 
   await db.query(
-    `CREATE TABLE jobs_users (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
+    `CREATE TABLE applications (id SERIAL PRIMARY KEY, job_id INTEGER REFERENCES jobs (id) ON DELETE CASCADE, username TEXT REFERENCES users (username) ON DELETE CASCADE);`
   );
 });
 
 afterAll(async () => {
   console.log('after all!');
 
-  await db.query('DROP TABLE IF EXISTS jobs_users');
+  await db.query('DROP TABLE IF EXISTS applications');
   await db.query('DROP TABLE IF EXISTS jobs');
   await db.query('DROP TABLE IF EXISTS users');
   await db.query('DROP TABLE IF EXISTS companies');
@@ -186,14 +186,14 @@ describe('DELETE /jobs/:id', () => {
   });
 });
 
-describe('POST /jobs/:id/apply', () => {
+describe('POST /jobs/:id/applications', () => {
   test('successfully applies for a job', async () => {
     const response = await request(app)
-      .post(`/jobs/${auth.job_id}/apply`)
+      .post(`/jobs/${auth.job_id}/applications`)
       .set('authorization', auth.user_token);
 
     const jobUserData = await db.query(
-      `SELECT * FROM jobs_users WHERE job_id=${auth.job_id} AND username='${
+      `SELECT * FROM applications WHERE job_id=${auth.job_id} AND username='${
         auth.current_username
       }'`
     );
@@ -204,14 +204,19 @@ describe('POST /jobs/:id/apply', () => {
   });
 });
 
-describe('DELETE /jobs/:id/apply', () => {
-  test('successfully deletes a job application', async () => {
+describe('DELETE /jobs/:id/applications/:applicationID', () => {
+  test('successfully deletes own job application', async () => {
     const applyforjob = await request(app)
-      .post(`/jobs/${auth.job_id}/apply`)
+      .post(`/jobs/${auth.job_id}/applications`)
       .set('authorization', auth.user_token);
 
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+
     const response = await request(app)
-      .delete(`/jobs/${auth.job_id}/apply`)
+      .delete(`/jobs/${auth.job_id}/applications/${jobID}`)
       .set('authorization', auth.user_token);
     expect(response.status).toBe(200);
     expect(response.body.message).toEqual(
@@ -219,32 +224,126 @@ describe('DELETE /jobs/:id/apply', () => {
     );
   });
 
-  // test('user cannot delete a job application that is not theirs', async () => {
+  test('user cannot delete a job application that is not theirs', async () => {
+    // create a new user AND apply for new job
+    const newUserResponse = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com'
+      });
 
-  // create a new user AND apply for new job
+    const newUserAuthResponse = await request(app)
+      .post('/user-auth')
+      .send({
+        username: 'test_user',
+        password: 'password'
+      });
+    const newUserToken = newUserAuthResponse.body.token;
 
-  //then attempt to delete with different user
-  //   const response = await request(app)
-  //     .delete(`/jobs/${auth.job_id}/apply`)
-  //     .set('authorization', auth.user_token);
-  //   expect(response.status).toBe(403);
-  //   expect(response.message).toEqual(
-  //     'You are not allowed to access this resource.'
-  //   );
-  // });
-  // test('company cannot delete a job application that is not theirs', async () => {
-  //   const response = await request(app)
-  //     .delete(`/jobs/${auth.job_id}/apply`)
-  //     .set('authorization', auth.company_token);
-  //   expect(response.status).toBe(403);
-  //   expect(response.message).toEqual(
-  //     'You are not allowed to access this resource.'
-  //   );
-  // });
+    const applyforjob = await request(app)
+      .post(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.user_token);
+
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+    // then attempt to delete with different user
+
+    const response = await request(app)
+      .delete(`/jobs/${auth.job_id}/applications/${jobID}`)
+      .set('authorization', newUserToken);
+    expect(response.status).toBe(403);
+    expect(response.body.message).toEqual(
+      'You are not allowed to access this resource.'
+    );
+  });
+
+  test('company can successfully delete applicant from their job', async () => {
+    // apply to job
+    const applicationResponse = await request(app)
+      .post(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.user_token);
+
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+
+    //delete job as company
+    const response = await request(app)
+      .delete(`/jobs/${auth.job_id}/applications/${jobID}`)
+      .set('authorization', auth.company_token);
+    expect(response.status).toBe(200);
+    expect(response.body.message).toEqual(
+      'Successfully deleted job application.'
+    );
+  });
+
+  test('company cannot delete a job application that is not theirs', async () => {
+    const applicationResponse = await request(app)
+      .post(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.user_token);
+
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+
+    //create a new company
+    const hashedCompanyPassword = await bcrypt.hash('pass', 1);
+    await db.query(
+      "INSERT INTO companies (handle, password, name, email) VALUES ('testcompany2', $1, 'testcompany2', 'test2@testcompany2.com')",
+      [hashedCompanyPassword]
+    );
+    const newCompanyResponse = await request(app)
+      .post('/company-auth')
+      .send({
+        handle: 'testcompany2',
+        password: 'pass'
+      });
+    const newCompanyToken = newCompanyResponse.body.token;
+
+    //delete job as new company
+    const response = await request(app)
+      .delete(`/jobs/${auth.job_id}/applications/${jobID}`)
+      .set('authorization', newCompanyToken);
+
+    expect(response.status).toBe(403);
+    expect(response.body.message).toEqual(
+      'You are not allowed to access this resource.'
+    );
+  });
+
+  test('cannot delete an application without a token', async () => {
+    // apply to job
+    const applicationResponse = await request(app)
+      .post(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.user_token);
+
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+
+    //delete job as company
+    const response = await request(app).delete(
+      `/jobs/${auth.job_id}/applications/${jobID}`
+    );
+    expect(response.status).toBe(401);
+    expect(response.body.message).toEqual(
+      'You need to authenticate before accessing this resource.'
+    );
+  });
 });
 
 afterEach(async () => {
   await db.query('DELETE FROM users');
   await db.query('DELETE FROM companies');
   await db.query('DELETE FROM jobs');
+  await db.query('DELETE FROM applications');
 });
