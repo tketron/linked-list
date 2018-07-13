@@ -116,6 +116,53 @@ router.post(
   }
 );
 
+router.get('/:id/applications', async (req, res, next) => {});
+
+router.get(
+  '/:id/applications/:applicationID',
+  requireAuthorization,
+  async (req, res, next) => {
+    try {
+      if (req.decodedToken.username) {
+        const jobUserData = await db.query(
+          `SELECT * FROM applications WHERE id=$1`,
+          [req.params.applicationID]
+        );
+        if (jobUserData.rows.length === 0) {
+          //404
+        } else if (jobUserData.rows[0].username !== req.decodedToken.username) {
+          //403
+        } else {
+          return res.json(jobUserData.rows[0]);
+        }
+      } else if (req.decodedToken.handle) {
+        const jobUserData = await db.query(
+          `SELECT * FROM applications WHERE id=$1`,
+          [req.params.applicationID]
+        );
+        const targetJob = await db.query(
+          `SELECT company FROM jobs WHERE id=$1`,
+          [req.params.id]
+        );
+        if (jobUserData.rows.length === 0) {
+          //404
+        } else if (targetJob.rows[0].company !== req.decodedToken.handle) {
+          //403
+        } else {
+          return res.json(jobUserData.rows[0]);
+        }
+      }
+      // const unauthorized = new Error(
+      //   'You need to authenticate before accessing this resource.'
+      // );
+      // unauthorized.status = 401;
+      // throw unauthorized;
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
 router.delete(
   '/:id/applications/:applicationID',
   requireAuthorization,
