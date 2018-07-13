@@ -70,6 +70,12 @@ beforeEach(async () => {
     "INSERT INTO jobs (title, salary, equity, company) VALUES ('engineer', '100000', '5', 'testcompany') RETURNING id"
   );
   auth.job_id = jobResponse.rows[0].id;
+
+  const applyForJob = await request(app)
+    .post(`/jobs/${auth.job_id}/applications`)
+    .set('authorization', auth.user_token);
+
+  auth.application_id = applyForJob.body.id;
 });
 
 describe('GET /jobs', () => {
@@ -186,6 +192,47 @@ describe('DELETE /jobs/:id', () => {
   });
 });
 
+describe('GET /jobs/:id/applications', () => {
+  test('get a list of applications if you are the company', async () => {
+    const newUserResponse = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com'
+      });
+
+    const newUserAuthResponse = await request(app)
+      .post('/user-auth')
+      .send({
+        username: 'test_user',
+        password: 'password'
+      });
+    const newUserToken = newUserAuthResponse.body.token;
+
+    const applyforjob = await request(app)
+      .post(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', newUserToken);
+
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.company_token);
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(2);
+  });
+
+  test('get just one application if you are the user', async () => {
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications`)
+      .set('authorization', auth.user_token);
+    console.log(response);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+  });
+});
 describe('POST /jobs/:id/applications', () => {
   test('successfully applies for a job', async () => {
     const response = await request(app)
@@ -200,16 +247,110 @@ describe('POST /jobs/:id/applications', () => {
     expect(jobUserData.rows[0].job_id).toEqual(auth.job_id);
     expect(jobUserData.rows[0].username).toEqual(auth.current_username);
     expect(response.status).toBe(200);
-    expect(response.body.message).toEqual('Successfully applied for job.');
+    expect(response.body.username).toEqual(auth.current_username);
+  });
+});
+
+describe('GET /jobs/:id/applications/:applicationID', () => {
+  test('successfully gets own job application', async () => {
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const applicationID = userResponse.body.applied_to[0];
+
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/${applicationID}`)
+      .set('authorization', auth.user_token);
+
+    expect(response.status).toBe(200);
+    expect(response.body.job_id).toBe(auth.job_id);
+  });
+  test('get 403 if user does not match application id', async () => {
+    const newUserResponse = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com'
+      });
+
+    const newUserAuthResponse = await request(app)
+      .post('/user-auth')
+      .send({
+        username: 'test_user',
+        password: 'password'
+      });
+    const newUserToken = newUserAuthResponse.body.token;
+
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/${auth.application_id}`)
+      .set('authorization', newUserToken);
+
+    expect(response.status).toBe(403);
+    expect(response.body.message).toEqual(
+      'You are not allowed to access this resource.'
+    );
+  });
+  test('get 404 if application id does not exist', async () => {
+    const userResponse = await request(app)
+      .get(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token);
+    const jobID = userResponse.body.applied_to[0];
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/15351351`)
+      .set('authorization', auth.user_token);
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toEqual('Record with that ID was not found.');
+  });
+
+  test('company can successfully get job application by appliation id', async () => {
+    const companyResponse = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/${auth.application_id}`)
+      .set('authorization', auth.company_token);
+
+    expect(companyResponse.status).toBe(200);
+    expect(companyResponse.body.job_id).toBe(auth.job_id);
+  });
+
+  test('company cannot get job application for a job it has not posted itself', async () => {
+    const hashedCompanyPassword = await bcrypt.hash('pass', 1);
+    await db.query(
+      "INSERT INTO companies (handle, password, name, email) VALUES ('testcompany2', $1, 'testcompany2', 'test2@testcompany2.com')",
+      [hashedCompanyPassword]
+    );
+    const newCompanyResponse = await request(app)
+      .post('/company-auth')
+      .send({
+        handle: 'testcompany2',
+        password: 'pass'
+      });
+    const newCompanyToken = newCompanyResponse.body.token;
+
+    //delete job as new company
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/${auth.application_id}`)
+      .set('authorization', newCompanyToken);
+
+    expect(response.status).toBe(403);
+    expect(response.body.message).toEqual(
+      'You are not allowed to access this resource.'
+    );
+  });
+  test('company gets 404 if not found', async () => {
+    const response = await request(app)
+      .get(`/jobs/${auth.job_id}/applications/15351351`)
+      .set('authorization', auth.company_token);
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toEqual('Record with that ID was not found.');
   });
 });
 
 describe('DELETE /jobs/:id/applications/:applicationID', () => {
   test('successfully deletes own job application', async () => {
-    const applyforjob = await request(app)
-      .post(`/jobs/${auth.job_id}/applications`)
-      .set('authorization', auth.user_token);
-
     const userResponse = await request(app)
       .get(`/users/${auth.current_username}`)
       .set('authorization', auth.user_token);
@@ -320,10 +461,7 @@ describe('DELETE /jobs/:id/applications/:applicationID', () => {
   });
 
   test('cannot delete an application without a token', async () => {
-    // apply to job
-    const applicationResponse = await request(app)
-      .post(`/jobs/${auth.job_id}/applications`)
-      .set('authorization', auth.user_token);
+    // // apply to job
 
     const userResponse = await request(app)
       .get(`/users/${auth.current_username}`)

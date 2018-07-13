@@ -105,18 +105,63 @@ router.post(
   requireUserAuthorization,
   async (req, res, next) => {
     try {
-      const jobUserData = await db.query(
-        `INSERT INTO applications (job_id, username) VALUES ($1, $2)`,
+      const applicationData = await db.query(
+        `INSERT INTO applications (job_id, username) VALUES ($1, $2) RETURNING *`,
         [req.params.id, req.username]
       );
-      return res.json({ message: 'Successfully applied for job.' });
+      return res.json(applicationData.rows[0]);
     } catch (e) {
       next(e);
     }
   }
 );
 
-router.get('/:id/applications', async (req, res, next) => {});
+router.get(
+  '/:id/applications',
+  requireAuthorization,
+  async (req, res, next) => {
+    try {
+      if (req.decodedToken.username) {
+        const applicationData = await db.query(
+          `SELECT * FROM applications WHERE job_id=$1 AND username=$2`,
+          [req.params.id, req.decodedToken.username]
+        );
+        if (applicationData.rows.length === 0) {
+          const FourOhFour = new Error('Record with that ID was not found.');
+          FourOhFour.status = 404;
+          throw FourOhFour;
+        } else {
+          return res.json(applicationData.rows);
+        }
+      }
+      if (req.decodedToken.handle) {
+        const applicationData = await db.query(
+          `SELECT * FROM applications WHERE job_id=$1`,
+          [req.params.id]
+        );
+        const targetJob = await db.query(
+          `SELECT company FROM jobs WHERE id=$1`,
+          [req.params.id]
+        );
+        if (applicationData.rows.length === 0) {
+          const FourOhFour = new Error('Record with that ID was not found.');
+          FourOhFour.status = 404;
+          throw FourOhFour;
+        } else if (targetJob.rows[0].company !== req.decodedToken.handle) {
+          const forbidden = new Error(
+            'You are not allowed to access this resource.'
+          );
+          forbidden.status = 403;
+          throw forbidden;
+        } else {
+          return res.json(applicationData.rows);
+        }
+      }
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
 router.get(
   '/:id/applications/:applicationID',
@@ -124,19 +169,27 @@ router.get(
   async (req, res, next) => {
     try {
       if (req.decodedToken.username) {
-        const jobUserData = await db.query(
+        const applicationData = await db.query(
           `SELECT * FROM applications WHERE id=$1`,
           [req.params.applicationID]
         );
-        if (jobUserData.rows.length === 0) {
-          //404
-        } else if (jobUserData.rows[0].username !== req.decodedToken.username) {
-          //403
+        if (applicationData.rows.length === 0) {
+          const FourOhFour = new Error('Record with that ID was not found.');
+          FourOhFour.status = 404;
+          throw FourOhFour;
+        } else if (
+          applicationData.rows[0].username !== req.decodedToken.username
+        ) {
+          const forbidden = new Error(
+            'You are not allowed to access this resource.'
+          );
+          forbidden.status = 403;
+          throw forbidden;
         } else {
-          return res.json(jobUserData.rows[0]);
+          return res.json(applicationData.rows[0]);
         }
       } else if (req.decodedToken.handle) {
-        const jobUserData = await db.query(
+        const applicationData = await db.query(
           `SELECT * FROM applications WHERE id=$1`,
           [req.params.applicationID]
         );
@@ -144,12 +197,18 @@ router.get(
           `SELECT company FROM jobs WHERE id=$1`,
           [req.params.id]
         );
-        if (jobUserData.rows.length === 0) {
-          //404
+        if (applicationData.rows.length === 0) {
+          const FourOhFour = new Error('Record with that ID was not found.');
+          FourOhFour.status = 404;
+          throw FourOhFour;
         } else if (targetJob.rows[0].company !== req.decodedToken.handle) {
-          //403
+          const forbidden = new Error(
+            'You are not allowed to access this resource.'
+          );
+          forbidden.status = 403;
+          throw forbidden;
         } else {
-          return res.json(jobUserData.rows[0]);
+          return res.json(applicationData.rows[0]);
         }
       }
       // const unauthorized = new Error(
@@ -169,18 +228,18 @@ router.delete(
   async (req, res, next) => {
     try {
       if (req.decodedToken.username) {
-        const jobUserData = await db.query(
+        const applicationData = await db.query(
           `SELECT * FROM applications WHERE id=$1`,
           [req.params.applicationID]
         );
-        if (jobUserData.rows[0].username !== req.decodedToken.username) {
+        if (applicationData.rows[0].username !== req.decodedToken.username) {
           const forbidden = new Error(
             'You are not allowed to access this resource.'
           );
           forbidden.status = 403;
           throw forbidden;
         } else {
-          const deleteJobUserData = await db.query(
+          const deleteapplicationData = await db.query(
             `DELETE FROM applications WHERE id=$1`,
             [req.params.applicationID]
           );
@@ -198,7 +257,7 @@ router.delete(
           forbidden.status = 403;
           throw forbidden;
         } else {
-          const deleteJobUserData = await db.query(
+          const deleteapplicationData = await db.query(
             `DELETE FROM applications WHERE id=$1`,
             [req.params.applicationID]
           );
