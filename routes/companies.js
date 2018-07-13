@@ -15,6 +15,7 @@ router.get('', requireAuthorization, async (req, res, next) => {
     let data = await db.query('SELECT * FROM companies');
 
     const updatedData = data.rows.map(async company => {
+      delete company.password;
       const userData = await db.query(
         'SELECT username FROM users WHERE current_company = $1',
         [company.handle]
@@ -22,14 +23,13 @@ router.get('', requireAuthorization, async (req, res, next) => {
       const jobData = await db.query('SELECT id FROM jobs WHERE company = $1', [
         company.handle
       ]);
-      delete company.password;
-      company.users = userData.rows.map(item => item.username);
+      company.employees = userData.rows.map(item => item.username);
       company.jobs = jobData.rows.map(item => item.id);
       return company;
     });
-    console.log(updatedData);
-
-    return res.json(data.rows);
+    Promise.all(updatedData).then(val => {
+      return res.json(val);
+    });
   } catch (e) {
     return next(e);
   }
