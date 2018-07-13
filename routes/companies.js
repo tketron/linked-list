@@ -38,6 +38,17 @@ router.get('', requireAuthorization, async (req, res, next) => {
 router.post('', async (req, res, next) => {
   // Create a new company
   try {
+    //check if handle exists in db
+    const companyCheck = await db.query(
+      'SELECT handle FROM companies WHERE handle=$1',
+      [req.body.handle]
+    );
+    if (companyCheck.rows.length > 0) {
+      const conflict = new Error('Company handle already exists.');
+      conflict.status = 409;
+      throw conflict;
+    }
+
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const data = await db.query(
       'INSERT INTO companies (handle, password, name, logo, email) VALUES ($1, $2, $3, $4, $5) RETURNING *',

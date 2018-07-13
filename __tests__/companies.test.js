@@ -84,7 +84,6 @@ describe('GET /companies', () => {
     const response = await request(app)
       .get('/companies')
       .set('authorization', auth.company_token);
-    console.log(response.body);
     expect(response.body).toHaveLength(2);
   });
 });
@@ -103,6 +102,30 @@ describe('POST /companies', () => {
     expect(Object.keys(response.body)).toHaveLength(5);
     expect(response.body.handle).toEqual('test_company');
     expect(response.body.password).toBeUndefined();
+  });
+  test('cannot add a duplicate comapny', async () => {
+    const firstResponse = await request(app)
+      .post('/companies')
+      .send({
+        handle: 'test_company',
+        password: 'password',
+        name: 'test_company',
+        logo: 'logo.com',
+        email: 'test_company@company.com'
+      });
+    const secondResponse = await request(app)
+      .post('/companies')
+      .send({
+        handle: 'test_company',
+        password: 'password',
+        name: 'test_company',
+        logo: 'logo.com',
+        email: 'test_company@company.com'
+      });
+    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.body.message).toEqual(
+      'Company handle already exists.'
+    );
   });
 });
 
@@ -127,7 +150,6 @@ describe('PATCH /companies/:handle', () => {
         logo: 'thisisalogo',
         password: 'newsecret'
       });
-    console.log(response.body);
     expect(response.body.email).toEqual('Tyler@tyler.com');
     expect(Object.keys(response.body)).toHaveLength(7);
   });

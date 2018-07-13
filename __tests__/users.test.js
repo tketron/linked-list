@@ -94,6 +94,28 @@ describe('POST /users', () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toEqual('Company does not exist.');
   });
+  test('attempting to add a duplicate username throws a 409 error', async () => {
+    const firstResponse = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com'
+      });
+    const secondResponse = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com'
+      });
+    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.body.message).toEqual('Username already exists.');
+  });
 });
 
 describe('GET /users/:username', () => {
