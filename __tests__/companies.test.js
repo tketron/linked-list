@@ -84,6 +84,7 @@ describe('GET /companies', () => {
     const response = await request(app)
       .get('/companies')
       .set('authorization', auth.company_token);
+    console.log(response.body);
     expect(response.body).toHaveLength(2);
   });
 });

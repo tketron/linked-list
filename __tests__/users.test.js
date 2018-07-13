@@ -41,21 +41,6 @@ beforeEach(async () => {
     });
   auth.user_token = response.body.token;
   auth.current_username = jwt.decode(auth.user_token).username;
-
-  // do the same for company "users"
-  // const hashedCompanyPassword = await bcrypt.hash('secret', 1);
-  // await db.query(
-  //   "INSERT INTO companies (handle, password) VALUES ('testcompany', $1)",
-  //   [hashedCompanyPassword]
-  // );
-  // const companyResponse = await request(app)
-  //   .post('/companies/auth')
-  //   .send({
-  //     handle: 'testcompany',
-  //     password: 'secret'
-  //   });
-  // auth.company_token = companyResponse.body.token;
-  // auth.current_company_id = jwt.decode(auth.company_token).company_id;
 });
 
 describe('GET /users', () => {
@@ -95,6 +80,20 @@ describe('POST /users', () => {
     expect(response.body.username).toEqual('test_user');
     expect(response.body.password).toBeUndefined();
   });
+  test('throw an error if company does not exist', async () => {
+    const response = await request(app)
+      .post('/users')
+      .send({
+        username: 'test_user',
+        password: 'password',
+        first_name: 'Test',
+        last_name: 'User',
+        email: 'test@user.com',
+        current_company: 'google'
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toEqual('Company does not exist.');
+  });
 });
 
 describe('GET /users/:username', () => {
@@ -121,9 +120,19 @@ describe('PATCH /users/:username', () => {
         first_name: 'Tyler',
         password: 'hi'
       });
-    console.log(response.body);
     expect(response.body.first_name).toEqual('Tyler');
     expect(Object.keys(response.body)).toHaveLength(7);
+  });
+
+  test('cannot patch with a company that does not exist', async () => {
+    const response = await request(app)
+      .patch(`/users/${auth.current_username}`)
+      .set('authorization', auth.user_token)
+      .send({
+        current_company: 'google'
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toEqual('Company does not exist.');
   });
 
   test('cannot patch another user', async () => {
