@@ -219,7 +219,11 @@ describe('DELETE /jobs/:id/apply', () => {
     );
   });
 
-  // test('company cannot delete a job application that is not theirs', async () => {
+  // test('user cannot delete a job application that is not theirs', async () => {
+
+  // create a new user AND apply for new job
+
+  //then attempt to delete with different user
   //   const response = await request(app)
   //     .delete(`/jobs/${auth.job_id}/apply`)
   //     .set('authorization', auth.user_token);

@@ -17,6 +17,7 @@ router.get('', requireAuthorization, async (req, res, next) => {
     );
 
     // TODO Add applied to for each users
+    // data.rows.forEach();
 
     return res.json(data.rows);
   } catch (e) {
@@ -57,7 +58,13 @@ router.get('/:username', requireAuthorization, async (req, res, next) => {
     const data = await db.query('SELECT * FROM users WHERE username = $1', [
       req.params.username
     ]);
+    const jobData = await db.query(
+      'SELECT id FROM jobs_users WHERE username = $1',
+      [req.params.username]
+    );
     delete data.rows[0].password;
+    data.rows[0].applied_to = [];
+    jobData.rows.forEach(job => data.rows[0].applied_to.push(job.id));
     return res.json(data.rows[0]);
   } catch (e) {
     return next(e);

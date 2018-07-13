@@ -108,7 +108,7 @@ describe('GET /users/:username', () => {
       .get('/users/test2')
       .set('authorization', auth.user_token);
     expect(response.body.username).toEqual('test2');
-    expect(Object.keys(response.body)).toHaveLength(7);
+    expect(Object.keys(response.body)).toHaveLength(8);
   });
 });
 
